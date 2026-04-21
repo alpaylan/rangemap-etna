@@ -57,7 +57,13 @@ where
     V: PartialEq,
 {
     fn eq(&self, other: &RangeMap<K, V>) -> bool {
+        /*| partialeq_map */
         self.iter().eq(other.iter())
+        /*|| partialeq_map_b3a59e6_1 */
+        /*|
+        self.btm == other.btm
+        */
+        /* |*/
     }
 }
 
@@ -275,14 +281,28 @@ where
         // If there is any such stored range, it will be the last
         // whose start is less than or equal to the start of the range to insert,
         // or the one before that if both of the above cases exist.
-        let mut candidates = self
-            .btm
-            .range::<RangeStartWrapper<K>, (Bound<&RangeStartWrapper<K>>, Bound<&RangeStartWrapper<K>>)>((
-                Bound::Unbounded,
-                Bound::Included(&new_start_wrapper),
-            ))
-            .rev()
-            .take(2)
+        let mut candidates =         /* marauders:variation=coalesce_contiguous;tags= */
+        /*| coalesce_contiguous_d1999f4 */
+        self
+                    .btm
+                    .range::<RangeStartWrapper<K>, (Bound<&RangeStartWrapper<K>>, Bound<&RangeStartWrapper<K>>)>((
+                        Bound::Unbounded,
+                        Bound::Included(&new_start_wrapper),
+                    ))
+                    .rev()
+                    .take(2)
+        /*|| coalesce_contiguous_d1999f4_1 */
+        /*|
+        self
+                    .btm
+                    .range::<RangeStartWrapper<K>, (Bound<&RangeStartWrapper<K>>, Bound<&RangeStartWrapper<K>>)>((
+                        Bound::Unbounded,
+                        Bound::Included(&new_start_wrapper),
+                    ))
+                    .rev()
+                    .take(1)
+        */
+        /* |*/
             .filter(|(stored_start_wrapper, _stored_value)| {
                 // Does the candidate range either overlap
                 // or immediately precede the range to insert?
@@ -809,6 +829,7 @@ where
     K: Ord,
 {
     fn next_back(&mut self) -> Option<Self::Item> {
+        /*| overlapping_backwards */
         while let Some((k, v)) = self.btm_range_iter.next_back() {
             if k.start < self.query_range.borrow().end {
                 return Some((&k.range, v));
@@ -816,6 +837,19 @@ where
         }
 
         None
+        /*|| overlapping_backwards_6df612f_1 */
+        /*|
+        if let Some((k, v)) = self.btm_range_iter.next_back() {
+            if k.start < self.query_range.borrow().end {
+                Some((&k.range, v))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+        */
+        /* |*/
     }
 }
 

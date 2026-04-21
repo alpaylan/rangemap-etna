@@ -70,7 +70,13 @@ where
     V: PartialEq,
 {
     fn eq(&self, other: &RangeInclusiveMap<K, V, StepFnsT>) -> bool {
+        /*| inclusive_equality */
         self.iter().eq(other.iter())
+        /*|| inclusive_equality_a6cdac3_1 */
+        /*|
+        self.btm == other.btm
+        */
+        /* |*/
     }
 }
 

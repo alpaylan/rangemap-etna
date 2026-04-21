@@ -131,14 +131,19 @@ book for general information about operating without the standard library.
 
 */
 
-#![no_std]
+#![cfg_attr(not(feature = "etna"), no_std)]
 extern crate alloc;
+#[cfg(feature = "etna")]
+extern crate std;
 
 pub mod inclusive_map;
 pub mod inclusive_set;
 pub mod map;
 pub(crate) mod operations;
 pub mod set;
+
+#[cfg(feature = "etna")]
+pub mod etna;
 
 #[cfg(test)]
 mod dense;

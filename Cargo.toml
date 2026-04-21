@@ -26,6 +26,13 @@ exclude = [
 quickcheck = { version = "1.0.3", optional = true }
 serde = { version = "1", optional = true }
 
+# ETNA framework deps — optional, activated by the `etna` feature.
+proptest = { version = "1.11.0", optional = true }
+quickcheck_etna = { path = "/Users/akeles/Programming/projects/PbtBenchmark/quickcheck", package = "quickcheck", features = ["etna"], optional = true }
+crabcheck = { path = "/Users/akeles/Programming/projects/PbtBenchmark/crabcheck", optional = true }
+hegeltest = { version = "0.3.7", optional = true }
+rand_etna = { package = "rand", version = "0.9", optional = true }
+
 [dev-dependencies]
 permutator = "0.4"
 # Criterion bumps its MSRV in 0.3.6; it is probably reasonable
@@ -33,7 +40,6 @@ permutator = "0.4"
 # a policy on that I'm going to avoid doing a big bump right now.
 # (Later problem!)
 criterion = "0.7"
-rand = "0.9"
 chrono = "0.4"          # For examples
 rustc_version = "0.4"
 serde_json = "1"
@@ -50,7 +56,32 @@ nightly = []
 # but is soon to be stabilized: <https://github.com/rust-lang/rust/issues/71835>
 const_fn = []
 quickcheck = ["dep:quickcheck"]
+# ETNA integration: pulls in every PBT framework needed by src/bin/etna.rs
+# and activates src/etna.rs (the framework-neutral property module).
+etna = [
+    "dep:proptest",
+    "dep:quickcheck_etna",
+    "dep:crabcheck",
+    "dep:hegeltest",
+    "dep:rand_etna",
+]
 
 [[bench]]
 name = "benches"
 harness = false
+
+[[bin]]
+name = "etna"
+path = "src/bin/etna.rs"
+required-features = ["etna"]
+
+[[test]]
+name = "etna_witnesses"
+path = "tests/etna_witnesses.rs"
+required-features = ["etna"]
+
+[profile.release]
+# ETNA: keep debug info + debug assertions so internal invariants panic and
+# backtraces are usable when the runner catches them.
+debug = true
+debug-assertions = true

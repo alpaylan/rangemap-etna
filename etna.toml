@@ -1,0 +1,88 @@
+# ETNA workload index for rangemap.
+#
+# One [[variant]] per injected mutation. Source of truth for variant->property
+# mapping. Every other fact is derivable from the source tree:
+#   - marauders list --path .                      (inline marauder mutations)
+#   - grep -rn "pub fn property_" src/etna.rs      (property functions)
+#   - grep -rn "fn witness_.*_case_" tests/        (witness tests)
+#
+# Base commit for this workload is 414e9c7 ("Merge pull request #117 from
+# jeffparsons/prepare_v1.7.1") on master — upstream v1.7.1 release. Every
+# etna/<variant> branch is base + the workload scaffolding + exactly one
+# marauder converted to its functional form.
+#
+# Candidate commits dropped from this workload (terminal reasons):
+#   - e840b59 "Prevent degenerate insertion perf regression"
+#       → performance-only; no observable black-box invariant
+#   - 25884ad "Fix PartialOrd and Ord for RangeMap"
+#       → same bug class as partialeq_map (b3a59e6); keep the smaller PartialEq case
+#   - bc926d1 "Fix Hash implementations"
+#       → same bug class as partialeq_map (ordering by start vs. by full entry)
+#   - 9d0b125 "Fix empty ranges returned by Gaps iterators"
+#       → subsumed by the broader gaps-semantics coverage in other workloads
+#   - 32786a0 "Fix const fn on Rust 1.66"
+#       → nightly-only feature gate; no runtime invariant
+#   - ae6b9c0 / fa9a209 / bc1cf95 / 724e63e / 80b0425 / 9e6977d / 6a9e6f3
+#       → docs/CI/clippy-only
+
+name = "rangemap"
+language = "Rust"
+
+[workload]
+name = "rangemap"
+crate = "rangemap"
+language = "rust"
+description = """
+ETNA workload for the Rust `rangemap` crate. Each variant re-introduces
+one historical bug-fix into a fresh patched branch and pairs it with a
+framework-neutral property, four PBT adapters, and a deterministic
+witness test.
+"""
+
+[runner]
+bin = "etna"
+cargo_features = ["etna"]
+
+[[variant]]
+name = "coalesce_contiguous_d1999f4_1"
+property = "coalesce_no_adjacent_same_value"
+injection = "marauders"
+source_commit = "d1999f48003b43ec7ed598c9497b859a8302b897"
+witnesses = [
+    "witness_coalesce_no_adjacent_same_value_case_replace_middle",
+]
+frameworks = ["proptest", "quickcheck", "crabcheck", "hegel"]
+files = ["src/map.rs"]
+
+[[variant]]
+name = "partialeq_map_b3a59e6_1"
+property = "partial_eq_matches_iter_eq"
+injection = "marauders"
+source_commit = "b3a59e6641a9e3869791f781abbae98f828f91c9"
+witnesses = [
+    "witness_partial_eq_matches_iter_eq_case_same_start_different_end",
+]
+frameworks = ["proptest", "quickcheck", "crabcheck", "hegel"]
+files = ["src/map.rs"]
+
+[[variant]]
+name = "inclusive_equality_a6cdac3_1"
+property = "inclusive_eq_matches_iter_eq"
+injection = "marauders"
+source_commit = "a6cdac3e99e747c9ec80b4ef238e1480e63927fb"
+witnesses = [
+    "witness_inclusive_eq_matches_iter_eq_case_same_start_different_end",
+]
+frameworks = ["proptest", "quickcheck", "crabcheck", "hegel"]
+files = ["src/inclusive_map.rs"]
+
+[[variant]]
+name = "overlapping_backwards_6df612f_1"
+property = "overlapping_reversible"
+injection = "marauders"
+source_commit = "6df612f15d17b2b2b7b4b6a0e5d48fa7a0bcaa08"
+witnesses = [
+    "witness_overlapping_reversible_case_trailing_non_overlap",
+]
+frameworks = ["proptest", "quickcheck", "crabcheck", "hegel"]
+files = ["src/map.rs"]
