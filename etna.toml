@@ -1,88 +1,110 @@
-# ETNA workload index for rangemap.
-#
-# One [[variant]] per injected mutation. Source of truth for variant->property
-# mapping. Every other fact is derivable from the source tree:
-#   - marauders list --path .                      (inline marauder mutations)
-#   - grep -rn "pub fn property_" src/etna.rs      (property functions)
-#   - grep -rn "fn witness_.*_case_" tests/        (witness tests)
-#
-# Base commit for this workload is 414e9c7 ("Merge pull request #117 from
-# jeffparsons/prepare_v1.7.1") on master — upstream v1.7.1 release. Every
-# etna/<variant> branch is base + the workload scaffolding + exactly one
-# marauder converted to its functional form.
-#
-# Candidate commits dropped from this workload (terminal reasons):
-#   - e840b59 "Prevent degenerate insertion perf regression"
-#       → performance-only; no observable black-box invariant
-#   - 25884ad "Fix PartialOrd and Ord for RangeMap"
-#       → same bug class as partialeq_map (b3a59e6); keep the smaller PartialEq case
-#   - bc926d1 "Fix Hash implementations"
-#       → same bug class as partialeq_map (ordering by start vs. by full entry)
-#   - 9d0b125 "Fix empty ranges returned by Gaps iterators"
-#       → subsumed by the broader gaps-semantics coverage in other workloads
-#   - 32786a0 "Fix const fn on Rust 1.66"
-#       → nightly-only feature gate; no runtime invariant
-#   - ae6b9c0 / fa9a209 / bc1cf95 / 724e63e / 80b0425 / 9e6977d / 6a9e6f3
-#       → docs/CI/clippy-only
-
 name = "rangemap"
-language = "Rust"
-
-[workload]
-name = "rangemap"
-crate = "rangemap"
-language = "rust"
 description = """
 ETNA workload for the Rust `rangemap` crate. Each variant re-introduces
 one historical bug-fix into a fresh patched branch and pairs it with a
 framework-neutral property, four PBT adapters, and a deterministic
 witness test.
 """
+language = "rust"
+crate = "rangemap"
+base_commit = "414e9c7c10afbe576abd2513a4ffc71343d5c7bd"
 
-[runner]
-bin = "etna"
-cargo_features = ["etna"]
+[[tasks]]
+mutations = ["coalesce_contiguous_d1999f4_1"]
 
-[[variant]]
-name = "coalesce_contiguous_d1999f4_1"
-property = "coalesce_no_adjacent_same_value"
-injection = "marauders"
-source_commit = "d1999f48003b43ec7ed598c9497b859a8302b897"
-witnesses = [
-    "witness_coalesce_no_adjacent_same_value_case_replace_middle",
-]
-frameworks = ["proptest", "quickcheck", "crabcheck", "hegel"]
+[tasks.source]
+repo = "https://github.com/jeffparsons/rangemap"
+commits = ["d1999f48003b43ec7ed598c9497b859a8302b897"]
+commit_subjects = ["Fix coalescing of contiguous ranges"]
+summary = "The insert path used `.take(2)` when scanning preceding ranges for coalescing; the buggy `.take(1)` only considers the single range immediately to the left, so when an earlier insert has split an older range into two pieces, the coalescing step misses the older-older piece and leaves two adjacent ranges with the same value."
+
+[tasks.injection]
+kind = "marauders"
 files = ["src/map.rs"]
+locations = [{ file = "src/map.rs", line = 284 }]
 
-[[variant]]
-name = "partialeq_map_b3a59e6_1"
-property = "partial_eq_matches_iter_eq"
-injection = "marauders"
-source_commit = "b3a59e6641a9e3869791f781abbae98f828f91c9"
+[tasks.bug]
+short_name = "coalesce_contiguous"
+invariant = "After any sequence of `insert` calls the map must not contain two adjacent ranges that share the same value — the data structure's core coalescing invariant."
+how_triggered = "the fix changed `.take(2)` to `.take(1)` on the reverse-iteration candidate window. With `.take(1)` the insert only ever considers the single range immediately to the left of the new one. If a preceding insert has split an older range into two pieces, the mutation misses the older-older piece, and a freshly-replacing insert that makes the trailing piece share a value with the piece two steps back leaves two uncoalesced adjacent ranges. The witness inserts `1..3 => 0`, `3..5 => 1`, then overwrites `3..5 => 0`; the base coalesces into `1..5 => 0`, the mutation leaves both `1..3 => 0` and `3..5 => 0`."
+
+[[tasks.tasks]]
+property = "CoalesceNoAdjacentSameValue"
 witnesses = [
-    "witness_partial_eq_matches_iter_eq_case_same_start_different_end",
+  { test_fn = "witness_coalesce_no_adjacent_same_value_case_replace_middle" },
 ]
-frameworks = ["proptest", "quickcheck", "crabcheck", "hegel"]
+
+[[tasks]]
+mutations = ["partialeq_map_b3a59e6_1"]
+
+[tasks.source]
+repo = "https://github.com/jeffparsons/rangemap"
+commits = ["b3a59e6641a9e3869791f781abbae98f828f91c9"]
+commit_subjects = ["Fix PartialEq implementation for RangeMap"]
+summary = "`RangeMap::PartialEq` delegated to `self.btm == other.btm`. The inner `BTreeMap` keys are `RangeStartWrapper`, which orders and compares only on `range.start`, so maps with matching starts but different ends (e.g. `{1..3 => 0}` vs `{1..4 => 0}`) compared equal. The fix switches to `self.iter().eq(other.iter())`."
+
+[tasks.injection]
+kind = "marauders"
 files = ["src/map.rs"]
+locations = [{ file = "src/map.rs", line = 60, symbol = "impl PartialEq for RangeMap" }]
 
-[[variant]]
-name = "inclusive_equality_a6cdac3_1"
-property = "inclusive_eq_matches_iter_eq"
-injection = "marauders"
-source_commit = "a6cdac3e99e747c9ec80b4ef238e1480e63927fb"
+[tasks.bug]
+short_name = "partialeq_map"
+invariant = "`a == b` must iff `a.iter().eq(b.iter())`. Two maps that differ in any stored range or value must not compare equal."
+how_triggered = "the pre-b3a59e6 impl delegated to `self.btm == other.btm`. The inner `BTreeMap` keys are `RangeStartWrapper` which orders solely by `range.start`, so `{1..3 => 0}` and `{1..4 => 0}` hash to identical keys and the BTreeMap equality coincidentally also compares values, *but* for the *keys* themselves BTreeMap only consults `PartialEq` of the wrapper — which in turn compares only the start. End/value mismatches silently slip through. The fix replaces this with `self.iter().eq(other.iter())`."
+
+[[tasks.tasks]]
+property = "PartialEqMatchesIterEq"
 witnesses = [
-    "witness_inclusive_eq_matches_iter_eq_case_same_start_different_end",
+  { test_fn = "witness_partial_eq_matches_iter_eq_case_same_start_different_end" },
 ]
-frameworks = ["proptest", "quickcheck", "crabcheck", "hegel"]
+
+[[tasks]]
+mutations = ["inclusive_equality_a6cdac3_1"]
+
+[tasks.source]
+repo = "https://github.com/jeffparsons/rangemap"
+commits = ["a6cdac3e99e747c9ec80b4ef238e1480e63927fb"]
+commit_subjects = ["Fix RangeInclusiveMap equality comparison"]
+summary = "Same bug class as `partialeq_map` but for `RangeInclusiveMap`: the pre-fix impl compared inner `BTreeMap`s whose keys order solely on `range.start`, so inclusive maps with matching starts but different ends compared equal. The fix delegates to iterator equality."
+
+[tasks.injection]
+kind = "marauders"
 files = ["src/inclusive_map.rs"]
+locations = [{ file = "src/inclusive_map.rs", line = 73, symbol = "impl PartialEq for RangeInclusiveMap" }]
 
-[[variant]]
-name = "overlapping_backwards_6df612f_1"
-property = "overlapping_reversible"
-injection = "marauders"
-source_commit = "6df612f15d17b2b2b7b4b6a0e5d48fa7a0bcaa08"
+[tasks.bug]
+short_name = "inclusive_equality"
+invariant = "identical to `partialeq_map` but for the inclusive-range variant: `a == b` iff `a.iter().eq(b.iter())`."
+how_triggered = "same mechanism — pre-a6cdac3 the impl reads `self.btm == other.btm` and compares BTreeMap keys via a start-only wrapper. The witness uses `{0..=5 => 0}` vs. `{0..=2 => 0}` which share a start but differ in end and therefore in iter-equality but not in the buggy `==`."
+
+[[tasks.tasks]]
+property = "InclusiveEqMatchesIterEq"
 witnesses = [
-    "witness_overlapping_reversible_case_trailing_non_overlap",
+  { test_fn = "witness_inclusive_eq_matches_iter_eq_case_same_start_different_end" },
 ]
-frameworks = ["proptest", "quickcheck", "crabcheck", "hegel"]
+
+[[tasks]]
+mutations = ["overlapping_backwards_6df612f_1"]
+
+[tasks.source]
+repo = "https://github.com/jeffparsons/rangemap"
+commits = ["6df612f45d6023cab8eeec69e10fe794c70eacd8"]
+commit_subjects = ["Fixes overlapping backwards iterator"]
+summary = "`Overlapping::next_back` used a single `if let Some(_)` followed by a start-bound check, terminating the iterator when the first reverse candidate's start exceeded the query end. The fix replaces it with `while let Some(_)` so non-overlapping trailing ranges are skipped instead of ending iteration."
+
+[tasks.injection]
+kind = "marauders"
 files = ["src/map.rs"]
+locations = [{ file = "src/map.rs", line = 832, symbol = "impl DoubleEndedIterator for Overlapping::next_back" }]
+
+[tasks.bug]
+short_name = "overlapping_backwards"
+invariant = "reverse iteration of `Overlapping` must yield the same set of ranges as forward iteration. In particular, if the inner BTreeMap's reverse cursor lands on a range whose start is past the query end, `next_back` must *skip* that range and keep walking backwards — not bail out."
+how_triggered = "the pre-6df612f impl uses a single `if let Some(_) = next_back()` followed by a start-bound check; if the check fails it returns `None` and the whole iterator terminates. The fix turns this into `while let Some(_)` so non-overlapping trailing ranges are skipped over. The witness stores `0..5` and `10..15`, queries `0..7`, and calls `next_back()`: forward yields `(0..5)`, base's reverse also yields `(0..5)` (skipping the trailing `10..15`), the mutation returns `None` immediately because the first reverse candidate is `10..15` whose start exceeds the query end."
+
+[[tasks.tasks]]
+property = "OverlappingReversible"
+witnesses = [
+  { test_fn = "witness_overlapping_reversible_case_trailing_non_overlap" },
+]

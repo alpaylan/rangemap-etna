@@ -3,4 +3,7 @@
 .beads/
 .claude/
 .hegel/
+.marauders/
+.migration-cache/
+etna.log
 progress.jsonl
