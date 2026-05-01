@@ -1,0 +1,27 @@
+# marauders: name=overlapping_backwards
+diff --git a/src/map.rs b/src/map.rs
+--- a/src/map.rs
++++ b/src/map.rs
+@@ -810,13 +810,15 @@
+     K: Ord,
+ {
+     fn next_back(&mut self) -> Option<Self::Item> {
+-        while let Some((k, v)) = self.btm_range_iter.next_back() {
+-            if k.start < self.query_range.borrow().end {
+-                return Some((&k.range, v));
+-            }
+-        }
+-
+-        None
++        if let Some((k, v)) = self.btm_range_iter.next_back() {
++            if k.start < self.query_range.borrow().end {
++                Some((&k.range, v))
++            } else {
++                None
++            }
++        } else {
++            None
++        }
+     }
+ }
+ 

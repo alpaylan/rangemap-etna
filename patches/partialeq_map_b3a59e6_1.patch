@@ -1,0 +1,13 @@
+# marauders: name=partialeq_map
+diff --git a/src/map.rs b/src/map.rs
+--- a/src/map.rs
++++ b/src/map.rs
+@@ -57,7 +57,7 @@
+     V: PartialEq,
+ {
+     fn eq(&self, other: &RangeMap<K, V>) -> bool {
+-        self.iter().eq(other.iter())
++        self.btm == other.btm
+     }
+ }
+ 
