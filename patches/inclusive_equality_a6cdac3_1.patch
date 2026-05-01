@@ -1,0 +1,13 @@
+# marauders: name=inclusive_equality
+diff --git a/src/inclusive_map.rs b/src/inclusive_map.rs
+--- a/src/inclusive_map.rs
++++ b/src/inclusive_map.rs
+@@ -70,7 +70,7 @@
+     V: PartialEq,
+ {
+     fn eq(&self, other: &RangeInclusiveMap<K, V, StepFnsT>) -> bool {
+-        self.iter().eq(other.iter())
++        self.btm == other.btm
+     }
+ }
+ 

@@ -20,7 +20,8 @@ commit_subjects = ["Fix coalescing of contiguous ranges"]
 summary = "The insert path used `.take(2)` when scanning preceding ranges for coalescing; the buggy `.take(1)` only considers the single range immediately to the left, so when an earlier insert has split an older range into two pieces, the coalescing step misses the older-older piece and leaves two adjacent ranges with the same value."
 
 [tasks.injection]
-kind = "marauders"
+kind = "patch"
+patch = "patches/coalesce_contiguous_d1999f4_1.patch"
 files = ["src/map.rs"]
 locations = [{ file = "src/map.rs", line = 284 }]
 
@@ -45,7 +46,8 @@ commit_subjects = ["Fix PartialEq implementation for RangeMap"]
 summary = "`RangeMap::PartialEq` delegated to `self.btm == other.btm`. The inner `BTreeMap` keys are `RangeStartWrapper`, which orders and compares only on `range.start`, so maps with matching starts but different ends (e.g. `{1..3 => 0}` vs `{1..4 => 0}`) compared equal. The fix switches to `self.iter().eq(other.iter())`."
 
 [tasks.injection]
-kind = "marauders"
+kind = "patch"
+patch = "patches/partialeq_map_b3a59e6_1.patch"
 files = ["src/map.rs"]
 locations = [{ file = "src/map.rs", line = 60, symbol = "impl PartialEq for RangeMap" }]
 
@@ -70,7 +72,8 @@ commit_subjects = ["Fix RangeInclusiveMap equality comparison"]
 summary = "Same bug class as `partialeq_map` but for `RangeInclusiveMap`: the pre-fix impl compared inner `BTreeMap`s whose keys order solely on `range.start`, so inclusive maps with matching starts but different ends compared equal. The fix delegates to iterator equality."
 
 [tasks.injection]
-kind = "marauders"
+kind = "patch"
+patch = "patches/inclusive_equality_a6cdac3_1.patch"
 files = ["src/inclusive_map.rs"]
 locations = [{ file = "src/inclusive_map.rs", line = 73, symbol = "impl PartialEq for RangeInclusiveMap" }]
 
@@ -95,7 +98,8 @@ commit_subjects = ["Fixes overlapping backwards iterator"]
 summary = "`Overlapping::next_back` used a single `if let Some(_)` followed by a start-bound check, terminating the iterator when the first reverse candidate's start exceeded the query end. The fix replaces it with `while let Some(_)` so non-overlapping trailing ranges are skipped instead of ending iteration."
 
 [tasks.injection]
-kind = "marauders"
+kind = "patch"
+patch = "patches/overlapping_backwards_6df612f_1.patch"
 files = ["src/map.rs"]
 locations = [{ file = "src/map.rs", line = 832, symbol = "impl DoubleEndedIterator for Overlapping::next_back" }]
 
